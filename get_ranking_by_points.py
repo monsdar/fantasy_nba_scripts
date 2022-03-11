@@ -1,6 +1,11 @@
 from espn_api.basketball import League #Ref: https://github.com/cwendt94/espn-api/wiki/League-Class-Basketball
 from tabulate import tabulate
 import os
+import sys
+
+if not 'ESPN_S2' in os.environ:
+    print("You need to set the right env vars. Check README.md")
+    sys.exit(1)
 
 ESPN_S2 = os.environ['ESPN_S2']
 SWID = os.environ['SWID']
