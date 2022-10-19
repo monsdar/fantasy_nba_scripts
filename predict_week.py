@@ -23,7 +23,11 @@ def main():
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     
     print("Read current matchups...")
-    curr_week = 20
+    
+    #curr_week = 21
+    curr_week = 22
+
+
     curr_scoreboard = league.scoreboard(curr_week)
     while not curr_scoreboard[0].winner == 'UNDECIDED':
         curr_week += 1
@@ -34,11 +38,15 @@ def main():
         team_scores.append({'team': match.away_team, 'curr_score': int(match.away_final_score) })
 
     today = datetime.datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-    end_date = datetime.datetime.strptime('Mar 13 2022', '%b %d %Y')
+    
+    
+    #end_date = datetime.datetime.strptime('Mar 27 2022', '%b %d %Y')
+    end_date = datetime.datetime.strptime('Apr 10 2022', '%b %d %Y')
+    
+    
     all_gameDays = schedule['leagueSchedule']['gameDates']
     games_left = get_games_between(all_gameDays, today, end_date)
     games_per_team = get_num_games_per_team(games_left)
-    games_per_team.update(get_num_games_for_team_kyrie(games_left))
 
     for team_score in team_scores:
         team_score['final_score_7'] = team_score['curr_score']
@@ -70,7 +78,6 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
         for (matchup, games) in get_gamedates_split_by_weeks(schedule['leagueSchedule']['gameDates']).items():
             for score_type in score_types:
                 games_per_team = get_num_games_per_team(games)
-                games_per_team.update(get_num_games_for_team_kyrie(games))
                 score = get_score_for_player(player, score_type, games_per_team)
                 #to get a normalized score we assume everyone is playing for the Warriors
                 normalized_score = get_score_for_player(player, score_type, games_per_team, overwrite_team='GSW')
@@ -149,8 +156,6 @@ def get_gamedates_split_by_weeks(gameDays):
 def get_score_for_player(player, score_type, games_per_team, overwrite_team=''):
     if player.proTeam == "FA": #ignore players that aren't playing right now
         return 0.0
-    if "Kyrie Irving" in player.name:
-        player.proTeam = "KYR"
     if not score_type in player.stats: #for rookies there's no data for 2021... use 2022 in that case to have something to work with
         score_type = '2022'
 
@@ -162,19 +167,6 @@ def get_score_for_player(player, score_type, games_per_team, overwrite_team=''):
         return 0.0
     else:
         return avg_score * games_per_team[pro_team]
-
-def get_num_games_for_team_kyrie(gameDays):
-    teams = {}
-    kyrie_count = 0
-    for gameDay in gameDays:
-        for game in gameDay['games']:
-            is_brooklyn_away = game['awayTeam']['teamTricode'] == "BKN"
-            is_in_toronto = game['homeTeam']['teamTricode'] == "TOR"
-            is_in_nyc = game['homeTeam']['teamTricode'] == "NYK"
-            if is_brooklyn_away and not is_in_toronto and not is_in_nyc:
-                kyrie_count += 1
-    teams['KYR'] = kyrie_count
-    return teams
 
 def get_num_games_per_team(gameDays):
     teams = {}

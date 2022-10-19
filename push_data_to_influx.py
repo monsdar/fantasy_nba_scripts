@@ -6,9 +6,11 @@ import requests
 import json
 import os
 import sys
+import logging
+logging.basicConfig(level=logging.INFO)
 
 if not 'ESPN_S2' in os.environ:
-    print("You need to set the right env vars. Check README.md")
+    logging.fatal("You need to set the right env vars. Check README.md")
     sys.exit(1)
 
 ESPN_S2 = os.environ['ESPN_S2']
@@ -33,7 +35,7 @@ def main():
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     points = []
 
-    print("Read league Activity")
+    logging.info("Read league Activity")
     activities = league.recent_activity(size=0)
     for activity in activities:
         timepoint = datetime.datetime.fromtimestamp(activity.date/1000.0)
@@ -78,20 +80,20 @@ def main():
                         }
                     })
 
-    print("Reading data for teams...")
+    logging.info("Reading data for teams...")
     for team in league.standings():
-        print("   ...%s" % team.team_name)
+        logging.info("   ...%s" % team.team_name)
         team_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
         points.extend(team_points)
     
-    print("Query a list of all free agents...")
+    logging.info("Query a list of all free agents...")
     all_free_agents = league.free_agents(size=0)
     
-    print("Reading data for free agents...")
+    logging.info("Reading data for free agents...")
     fa_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
     points.extend(fa_points)
 
-    print("Pushing %s data points to InfluxDB" % len(points))
+    logging.info("Pushing %s data points to InfluxDB" % len(points))
     influx_client = InfluxDBClient(INFLUX_SERVER, INFLUX_PORT, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE)
     influx_client.write_points(points, time_precision='s')
 
@@ -101,7 +103,6 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
         for (matchup, games) in get_gamedates_split_by_weeks(schedule['leagueSchedule']['gameDates']).items():
             for score_type in score_types:
                 games_per_team = get_num_games_per_team(games)
-                games_per_team.update(get_num_games_for_team_kyrie(games))
                 score = get_score_for_player(player, score_type, games_per_team)
                 #to get a normalized score we assume everyone is playing for the Warriors
                 normalized_score = get_score_for_player(player, score_type, games_per_team, overwrite_team='GSW')
@@ -179,8 +180,6 @@ def get_gamedates_split_by_weeks(gameDays):
 def get_score_for_player(player, score_type, games_per_team, overwrite_team=''):
     if player.proTeam == "FA": #ignore players that aren't playing right now
         return 0.0
-    if "Kyrie Irving" in player.name:
-        player.proTeam = "KYR"
     if not score_type in player.stats: #for rookies there's no data for 2021... use 2022 in that case to have something to work with
         score_type = '2022'
 
@@ -189,19 +188,6 @@ def get_score_for_player(player, score_type, games_per_team, overwrite_team=''):
         pro_team = overwrite_team
     avg_score = player.stats[score_type]['applied_avg']
     return avg_score * games_per_team[pro_team]
-
-def get_num_games_for_team_kyrie(gameDays):
-    teams = {}
-    kyrie_count = 0
-    for gameDay in gameDays:
-        for game in gameDay['games']:
-            is_brooklyn_away = game['awayTeam']['teamTricode'] == "BKN"
-            is_in_toronto = game['homeTeam']['teamTricode'] == "TOR"
-            is_in_nyc = game['homeTeam']['teamTricode'] == "NYK"
-            if is_brooklyn_away and not is_in_toronto and not is_in_nyc:
-                kyrie_count += 1
-    teams['KYR'] = kyrie_count
-    return teams
 
 def get_num_games_per_team(gameDays):
     teams = {}
@@ -237,4 +223,8 @@ def read_schedule_from_url(url='https://cdn.nba.com/static/json/staticData/sched
     return response.json()
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        logging.exception(e)
+        raise

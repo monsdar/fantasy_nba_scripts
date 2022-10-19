@@ -25,11 +25,14 @@ def main():
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     sched_days = get_schedule_by_day(schedule, MATCHUP, START_DATE)
 
-    #drop_players = ["Isaiah Roby", "Immanuel Quickley", "Moritz Wagner"]
-    #drop_players = ["OG Anunoby", "Immanuel Quickley"]
-    #drop_players = ["OG Anunoby", "Isaiah Roby"]
-    #drop_players = ["OG Anunoby", "Moritz Wagner"]
-    drop_players = ["OG Anunoby"]
+    drop_players = ["Josh Hart"]
+    drop_players = ["Markelle Fultz"]
+    drop_players = ["Mason Plumlee"]
+    drop_players = ["Gary Trent Jr."]
+    drop_players = ["Kentavious Caldwell-Pope"]
+    drop_players = ["Kevin Huerter"]
+    drop_players = ["Immanuel Quickley"]
+    drop_players = ["Gordon Hayward"]
 
     #get all available teams
     all_teams = set()
@@ -43,6 +46,7 @@ def main():
             continue
         roster = team.roster
         roster = [player for player in roster if not player.name in drop_players]
+        roster = [player for player in roster if not player.lineupSlot == "IR"]
 
     schedules = {}
     for pro_team in all_teams:
@@ -63,8 +67,6 @@ def get_team_schedule(sched_days, players, add_teams=[]):
             schedule[day] = 0
             for player in players:
                 player_pro_team = player.proTeam
-                if "Kyrie Irving" in player.name:
-                    player_pro_team = "KYR"
                 if player_pro_team in pro_teams:
                     schedule[day] += 1
             for add_player_team in add_teams:
@@ -107,13 +109,6 @@ def get_schedule_by_day(schedule, matchup, earliest_start_date):
                 if team_code == 'PHO':
                     team_days[day].append('PHX')
                 team_days[day].append(team_code)
-
-                #add team_kyrie
-                is_brooklyn_away = game['awayTeam']['teamTricode'] == "BKN"
-                is_in_toronto = game['homeTeam']['teamTricode'] == "TOR"
-                is_in_nyc = game['homeTeam']['teamTricode'] == "NYK"
-                if is_brooklyn_away and not is_in_nyc and not is_in_toronto:
-                    team_days[day].append('KYR')
     return team_days
         
 def get_gamedates_split_by_weeks(gameDays):
@@ -135,7 +130,7 @@ def get_gamedates_split_by_weeks(gameDays):
 #    Matchup 15;Jan 24 2022;Jan 30 2022
     raw_schedule = '''
     Playoffs 1;Mar 14 2022;Mar 27 2022
-    Playoffs 2;Mar 28 2022;Apr 10 2022'''
+    Playoffs 2;Mar 28 2022;Apr 11 2022'''
 #    raw_schedule = '''
 #    Playoffs 1;Mar 14 2022;Mar 27 2022
 #    Playoffs 2;Mar 28 2022;Apr 10 2022
