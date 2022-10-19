@@ -16,6 +16,11 @@ LEAGUE_YEAR = int(os.environ['LEAGUE_YEAR'])
 BOT_API_KEY = os.environ['BOT_API_KEY']
 BOT_CHAT_ID = os.environ['BOT_CHAT_ID']
 
+# Testing purposes...
+#bot = telegram.Bot(token=BOT_API_KEY)
+#bot.send_message(text="Einer noch...", chat_id=BOT_CHAT_ID, parse_mode="Markdown")
+#sys.exit(0)
+
 def main():
     action_types = {}
     action_types['DROPPED'] = 'dropped'
