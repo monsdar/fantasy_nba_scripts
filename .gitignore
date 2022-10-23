@@ -3,3 +3,4 @@ set_env.ps1
 espn-api
 scheduleLeagueV2.json
 post_activity/build.sh
+powerrankings/build.sh

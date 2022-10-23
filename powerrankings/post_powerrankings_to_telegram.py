@@ -20,8 +20,9 @@ ONLY_CALC_LAST_X_WEEK = 4
 def main():
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
 
+    # This gathers data from each matchup until the current one
     team_results = {}
-    curr_week = 12
+    curr_week = 1 #this is to not gather data from the whole season in the later stages of the season
     curr_scoreboard = league.scoreboard(curr_week)
     while(curr_scoreboard[0].winner != 'UNDECIDED'):
         team_results[curr_week] = []
@@ -31,28 +32,32 @@ def main():
         curr_week += 1
         curr_scoreboard = league.scoreboard(curr_week)
 
+    # This takes the results of the last weeks and calculates the rankings
     team_ranking = {}
-    for result in list(team_results.values())[-ONLY_CALC_LAST_X_WEEK:]:
+    calc_weeks = ONLY_CALC_LAST_X_WEEK
+    if len(team_results) < calc_weeks:
+        calc_weeks = len(team_results)
+    for result in list(team_results.values())[-calc_weeks:]:
         ordered_results = sorted(result, key=lambda d: d['score'])
         for num, result in enumerate(ordered_results, start=1):
             team = result['team']
             if not team in team_ranking:
                 team_ranking[team] = 0
             team_ranking[team] += num
-
     sorted_rankings = sorted(team_ranking.items(), key=lambda item: item[1], reverse=True)
 
-
-
+    # Post everything to telegram in the end
     bot = telegram.Bot(token=BOT_API_KEY)
-    text = "*Power Rankings*\n_4 Wochen_"
+    woche_name = "Wochen"
+    if calc_weeks == 1:
+        woche_name = "Woche"
+    text = f"*Power Rankings*\n_{calc_weeks} {woche_name}_"
     bot.send_message(text=text, chat_id=BOT_CHAT_ID, parse_mode="Markdown")
 
     for index, rank in enumerate(sorted_rankings, start=1):
         text = f"*{index}.* {rank[0]}: *{rank[1]} Power*"
         bot.send_message(text=text, chat_id=BOT_CHAT_ID, parse_mode="Markdown")
         time.sleep(.5)
-
 
 if __name__ == "__main__":
     main()
