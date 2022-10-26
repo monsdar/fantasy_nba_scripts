@@ -59,11 +59,15 @@ def main():
                 matchups[matchup_name][boxscore.away_team] = {}
 
             for player in boxscore.home_lineup:
+                if player.slot_position == "IR" or player.slot_position == "BE":
+                    continue
                 if not player.name in matchups[matchup_name][boxscore.home_team].keys():
                     matchups[matchup_name][boxscore.home_team][player.name] = 0.0
                 if player.points > matchups[matchup_name][boxscore.home_team][player.name]:
                     matchups[matchup_name][boxscore.home_team][player.name] = player.points
             for player in boxscore.away_lineup:
+                if player.slot_position == "IR" or player.slot_position == "BE":
+                    continue
                 if not player.name in matchups[matchup_name][boxscore.away_team].keys():
                     matchups[matchup_name][boxscore.away_team][player.name] = 0.0
                 if player.points > matchups[matchup_name][boxscore.away_team][player.name]:
@@ -84,7 +88,7 @@ def main():
         time.sleep(.5)
     
     # Calc ranking sleeper-style (sum of best games of each player)
-    text = ("*Matchup-Ergebnisse wenn nur die beste Leistung jedes Spielers zählt*\n_Sleeper-Style, Bench + IR werden mitgezählt_")
+    text = ("*Matchup-Ergebnisse wenn nur die beste Leistung jedes Spielers zählt*\n_Sleeper-Style, Bench + IR werden nicht mitgezählt_")
     bot.send_message(text=text, chat_id=BOT_CHAT_ID, parse_mode="Markdown")
     for matchup_name, matchup in matchups.items():
         scores = []
