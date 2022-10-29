@@ -1,5 +1,7 @@
 from espn_api.basketball import League #Ref: https://github.com/cwendt94/espn-api/wiki/League-Class-Basketball
-from influxdb import InfluxDBClient
+import influxdb_client
+from influxdb_client.client.write_api import SYNCHRONOUS
+
 import datetime
 import locale
 import requests
@@ -18,19 +20,14 @@ SWID = os.environ['SWID']
 LEAGUE_ID = int(os.environ['LEAGUE_ID'])
 LEAGUE_YEAR = int(os.environ['LEAGUE_YEAR'])
 
-INFLUX_SERVER = os.environ['INFLUX_SERVER']
-INFLUX_PORT = 8086
-INFLUX_USER = os.environ['INFLUX_USER']
-INFLUX_PASSWORD = os.environ['INFLUX_PASSWORD']
-INFLUX_DATABASE = os.environ['INFLUX_DATABASE']
+INFLUX_TOKEN = os.environ.get("INFLUX_TOKEN")
+INFLUX_ORG = os.environ.get("INFLUX_ORG")
+INFLUX_URL = os.environ.get("INFLUX_URL")
+INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET")
 
-score_types = ['2022_last_7', '2022_last_15', '2022_last_30', '2022', '2021']
+score_types = ['2023_last_7', '2023_last_15', '2023_last_30', '2023', '2022']
 
-def main():    
-    #influx_client = InfluxDBClient(INFLUX_SERVER, INFLUX_PORT, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE)
-    #influx_client.delete_series(INFLUX_DATABASE, 'fantasy_playervalue', {})
-    #sys.exit()
-
+def main():
     schedule = read_schedule_from_file()
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     points = []
@@ -94,8 +91,9 @@ def main():
     points.extend(fa_points)
 
     logging.info("Pushing %s data points to InfluxDB" % len(points))
-    influx_client = InfluxDBClient(INFLUX_SERVER, INFLUX_PORT, INFLUX_USER, INFLUX_PASSWORD, INFLUX_DATABASE)
-    influx_client.write_points(points, time_precision='s')
+    influx_client = influxdb_client.InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+    influx_write_api.write(record=points, bucket=INFLUX_BUCKET, org=INFLUX_ORG, time_precision='s')
 
 def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_below=-100.0):
     points = []
@@ -104,8 +102,8 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
             for score_type in score_types:
                 games_per_team = get_num_games_per_team(games)
                 score = get_score_for_player(player, score_type, games_per_team)
-                #to get a normalized score we assume everyone is playing for the Warriors
-                normalized_score = get_score_for_player(player, score_type, games_per_team, overwrite_team='GSW')
+                #to get a normalized score we assume everyone is playing for the Lakers
+                normalized_score = get_score_for_player(player, score_type, games_per_team, overwrite_team='LAL')
 
                 if score < skip_scores_below: #this skips players who are barely productive
                     continue
@@ -131,38 +129,32 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
     return points
 
 def get_gamedates_split_by_weeks(gameDays):
-#    raw_schedule = '''
-#    Matchup 1;Oct 19 2021;Oct 24 2021
-#    Matchup 2;Oct 25 2021;Oct 31 2021
-#    Matchup 3;Nov 1 2021;Nov 7 2021
-#    Matchup 4;Nov 8 2021;Nov 14 2021
-#    Matchup 5;Nov 15 2021;Nov 21 2021
-#    Matchup 6;Nov 22 2021;Nov 28 2021
-#    Matchup 7;Nov 29 2021;Dec 5 2021
-#    Matchup 8;Dec 6 2021;Dec 12 2021
-#    Matchup 9;Dec 13 2021;Dec 19 2021
-#    Matchup 10;Dec 20 2021;Dec 26 2021
-#    Matchup 11;Dec 27 2021;Jan 2 2022
-#    Matchup 12;Jan 3 2022;Jan 9 2022
-#    Matchup 13;Jan 10 2022;Jan 16 2022
-#    Matchup 14;Jan 17 2022;Jan 23 2022
-#    Matchup 15;Jan 24 2022;Jan 30 2022
     raw_schedule = '''
-    Matchup 16;Jan 31 2022;Feb 6 2022
-    Matchup 17;Feb 7 2022;Feb 13 2022
-    Matchup 18;Feb 14 2022;Feb 27 2022
-    Matchup 19;Feb 28 2022;Mar 6 2022
-    Matchup 20;Mar 7 2022;Mar 13 2022
-    ROS;Feb 7 2022;Mar 13 2022
-    Playoffs 1;Mar 14 2022;Mar 27 2022
-    Playoffs 2;Mar 28 2022;Apr 10 2022
-    Playoffs Full;Mar 14 2022;Apr 10 2022'''
-#    raw_schedule = '''
-#    Playoffs 1;Mar 14 2022;Mar 27 2022
-#    Playoffs 2;Mar 28 2022;Apr 10 2022
-#    Playoffs Full;Mar 14 2022;Apr 10 2022'''
+    Matchup 1;Oct 17 2022;Oct 23 2022
+    Matchup 2;Oct 24 2022;Oct 30 2022
+    Matchup 3;Oct 31 2022;Nov 6 2022
+    Matchup 4;Nov 7 2022;Nov 13 2022
+    Matchup 5;Nov 14 2022;Nov 20 2022
+    Matchup 6;Nov 21 2022;Nov 27 2022
+    Matchup 7;Nov 28 2022;Dec 4 2022
+    Matchup 8;Dec 5 2022;Dec 11 2022
+    Matchup 9;Dec 12 2022;Dec 18 2022
+    Matchup 10;Dec 19 2022;Dec 25 2022
+    Matchup 11;Dec 26 2022;Jan 1 2023
+    Matchup 12;Jan 2 2023;Jan 8 2023
+    Matchup 13;Jan 9 2023;Jan 15 2023
+    Matchup 14;Jan 16 2023;Jan 22 2023
+    Matchup 15;Jan 23 2023;Jan 29 2023
+    Matchup 16;Jan 30 2023;Feb 5 2023
+    Matchup 17;Feb 6 2023;Feb 12 2023
+    Matchup 18;Feb 13 2023;Feb 26 2023
+    Matchup 19;Feb 27 2023;Mar 5 2023
+    Playoffs Full;Mar 6 2023;Mar 26 2023
+    Round 1;Mar 6 2023;Mar 12 2023
+    Round 2;Mar 13 2023;Mar 19 2023
+    Round 3;Mar 20 2023;Mar 26 2023'''
     parsed_schedule = []
-    locale.setlocale(locale.LC_TIME, "en_US") #to make sure we can parse English month names like Oct etc
+    locale.setlocale(locale.LC_TIME, "en_US.UTF-8") #to make sure we can parse English month names like Oct etc
     for line in raw_schedule.split('\n'):
         if not line.strip():
             continue
@@ -180,8 +172,8 @@ def get_gamedates_split_by_weeks(gameDays):
 def get_score_for_player(player, score_type, games_per_team, overwrite_team=''):
     if player.proTeam == "FA": #ignore players that aren't playing right now
         return 0.0
-    if not score_type in player.stats: #for rookies there's no data for 2021... use 2022 in that case to have something to work with
-        score_type = '2022'
+    if not score_type in player.stats: #for rookies there's no data for 2022... use 2023 in that case to have something to work with
+        score_type = '2023'
 
     pro_team = player.proTeam
     if overwrite_team:
