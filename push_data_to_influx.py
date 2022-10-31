@@ -25,7 +25,7 @@ INFLUX_ORG = os.environ.get("INFLUX_ORG")
 INFLUX_URL = os.environ.get("INFLUX_URL")
 INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET")
 
-score_types = ['2023_last_7', '2023_last_15', '2023_last_30', '2023', '2022']
+score_types = ['2023_last_7', '2023_last_15', '2023_last_30']
 
 def main():
     schedule = read_schedule_from_file()
@@ -77,18 +77,18 @@ def main():
                         }
                     })
 
-    logging.info("Reading data for teams...")
-    for team in league.standings():
-        logging.info("   ...%s" % team.team_name)
-        team_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
-        points.extend(team_points)
-    
-    logging.info("Query a list of all free agents...")
-    all_free_agents = league.free_agents(size=0)
-    
-    logging.info("Reading data for free agents...")
-    fa_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
-    points.extend(fa_points)
+    #logging.info("Reading data for teams...")
+    #for team in league.standings():
+    #    logging.info("   ...%s" % team.team_name)
+    #    team_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
+    #    points.extend(team_points)
+    #
+    #logging.info("Query a list of all free agents...")
+    #all_free_agents = league.free_agents(size=0)
+    #
+    #logging.info("Reading data for free agents...")
+    #fa_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
+    #points.extend(fa_points)
 
     logging.info("Pushing %s data points to InfluxDB" % len(points))
     influx_client = influxdb_client.InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
@@ -111,8 +111,6 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
                 points.append({
                         'measurement': 'fantasy_playervalue',
                         'tags': {
-                            'player': player.name,
-                            'pro_team': player.proTeam,
                             'fantasy_team': fantasy_team,
                             'injury_status': player.injuryStatus,
                             'is_on_ir': (player.lineupSlot == "IR"),
@@ -123,7 +121,8 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
                         "time": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
                         "fields": {
                             "score": score,
-                            "normalized_score": normalized_score
+                            "normalized_score": normalized_score,
+                            "player": player.name
                         }
                     })
     return points
