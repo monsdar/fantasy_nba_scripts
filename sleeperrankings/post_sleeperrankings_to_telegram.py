@@ -94,7 +94,7 @@ def main():
         time.sleep(.5)
     
     # Calc ranking sleeper-style (sum of best games of each player)
-    text = ("*Matchup-Ergebnisse wenn nur die beste Leistung jedes Spielers zählt*\n_Sleeper-Style, Bench + IR werden nicht mitgezählt_")
+    text = ("*Matchup-Ergebnisse wenn nur die beste Leistung jedes Spielers zählt*\n_Sleeper-Style, ohne Bench + IR_")
     print_to_channel(bot, text)
     for matchup_name, matchup in matchups.items():
         scores = []
