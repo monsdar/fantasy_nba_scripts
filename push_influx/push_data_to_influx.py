@@ -1,9 +1,8 @@
 from espn_api.basketball import League #Ref: https://github.com/cwendt94/espn-api/wiki/League-Class-Basketball
 import influxdb_client
 from influxdb_client.client.write_api import SYNCHRONOUS
-
+from pprint import pprint
 import datetime
-import locale
 import requests
 import json
 import os
@@ -32,7 +31,36 @@ def main():
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     points = []
 
+    logging.info("Read matchups")
+    new_points = get_influx_data_from_matchups(league)
+    points.extend(new_points)
+    logging.info(f"   ...found {len(new_points)} new data points")
+            
     logging.info("Read league Activity")
+    new_points = get_influx_data_from_activities(league)
+    points.extend(new_points)
+    logging.info(f"   ...found {len(new_points)} new data points")
+
+    logging.info("Reading player data for teams...")
+    for team in league.standings():
+        logging.info("   ...%s" % team.team_name)
+        new_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
+        points.extend(new_points)
+        logging.info(f"      ...found {len(new_points)} new data points")
+    
+    logging.info("Read player data for free agents...")
+    all_free_agents = league.free_agents(size=0)
+    new_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
+    points.extend(new_points)
+    logging.info(f"   ...found {len(new_points)} new data points")
+
+    logging.info("Pushing %s data points to InfluxDB" % len(points))
+    influx_client = influxdb_client.InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
+    influx_write_api.write(record=points, bucket=INFLUX_BUCKET, org=INFLUX_ORG, time_precision='s')
+
+def get_influx_data_from_activities(league):
+    points = []
     activities = league.recent_activity(size=0)
     for activity in activities:
         timepoint = datetime.datetime.fromtimestamp(activity.date/1000.0)
@@ -76,24 +104,44 @@ def main():
                         "value": 1 #we need to have a value, so for counting reasons just put 1 into each action
                         }
                     })
+    return points
 
-    #logging.info("Reading data for teams...")
-    #for team in league.standings():
-    #    logging.info("   ...%s" % team.team_name)
-    #    team_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
-    #    points.extend(team_points)
-    #
-    #logging.info("Query a list of all free agents...")
-    #all_free_agents = league.free_agents(size=0)
-    #
-    #logging.info("Reading data for free agents...")
-    #fa_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
-    #points.extend(fa_points)
+def get_influx_data_from_matchups(league):
+    points = []
+    for current_week in range(1,22):
+        logging.info(f"...week {current_week}")
+        matchups = league.scoreboard(current_week)
+        if not matchups or (matchups[0].winner == "UNDECIDED"):
+            logging.info("...matchup is still active")
+            break
 
-    logging.info("Pushing %s data points to InfluxDB" % len(points))
-    influx_client = influxdb_client.InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-    influx_write_api = influx_client.write_api(write_options=SYNCHRONOUS)
-    influx_write_api.write(record=points, bucket=INFLUX_BUCKET, org=INFLUX_ORG, time_precision='s')
+        matchup_dates = get_matchup_dates()
+        timepoint = matchup_dates[current_week-1]['end_date']
+
+        for matchup in matchups:
+            points.append({
+                    'measurement': 'fantasy_score',
+                    'tags': {
+                        'fantasy_team': matchup.home_team.team_name,
+                        'matchup': matchup_dates[current_week-1]['name']
+                    },
+                    "time": timepoint.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "fields": {
+                        "score": matchup.home_final_score
+                    }
+                })
+            points.append({
+                    'measurement': 'fantasy_score',
+                    'tags': {
+                        'fantasy_team': matchup.away_team.team_name,
+                        'matchup': matchup_dates[current_week-1]['name']
+                    },
+                    "time": timepoint.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "fields": {
+                        "score": matchup.away_final_score
+                    }
+                })
+    return points
 
 def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_below=-100.0):
     points = []
@@ -127,7 +175,7 @@ def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_
                     })
     return points
 
-def get_gamedates_split_by_weeks(gameDays):
+def get_matchup_dates():
     raw_schedule = '''
     Matchup 1;Oct 17 2022;Oct 23 2022
     Matchup 2;Oct 24 2022;Oct 30 2022
@@ -148,12 +196,11 @@ def get_gamedates_split_by_weeks(gameDays):
     Matchup 17;Feb 6 2023;Feb 12 2023
     Matchup 18;Feb 13 2023;Feb 26 2023
     Matchup 19;Feb 27 2023;Mar 5 2023
-    Playoffs Full;Mar 6 2023;Mar 26 2023
     Round 1;Mar 6 2023;Mar 12 2023
     Round 2;Mar 13 2023;Mar 19 2023
-    Round 3;Mar 20 2023;Mar 26 2023'''
+    Round 3;Mar 20 2023;Mar 26 2023
+    Playoffs Full;Mar 6 2023;Mar 26 2023'''
     parsed_schedule = []
-    locale.setlocale(locale.LC_TIME, "en_US.UTF-8") #to make sure we can parse English month names like Oct etc
     for line in raw_schedule.split('\n'):
         if not line.strip():
             continue
@@ -162,9 +209,11 @@ def get_gamedates_split_by_weeks(gameDays):
         start_date = datetime.datetime.strptime(line_elements[1], '%b %d %Y')
         end_date = datetime.datetime.strptime(line_elements[2], '%b %d %Y')
         parsed_schedule.append( {'name': name, 'start_date': start_date, 'end_date': end_date} )
+    return parsed_schedule
 
+def get_gamedates_split_by_weeks(gameDays):
     gameweeks = {}
-    for matchup in parsed_schedule:
+    for matchup in get_matchup_dates():
         gameweeks[matchup['name']] = get_games_between(gameDays, matchup['start_date'], matchup['end_date'])
     return gameweeks
 
