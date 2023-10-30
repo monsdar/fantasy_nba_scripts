@@ -27,7 +27,7 @@ INFLUX_BUCKET = os.environ.get("INFLUX_BUCKET")
 score_types = ['2023_last_7', '2023_last_15', '2023_last_30']
 
 def main():
-    schedule = read_schedule_from_file()
+    #schedule = read_schedule_from_file()
     league = League(league_id=LEAGUE_ID, year=LEAGUE_YEAR, espn_s2=ESPN_S2, swid=SWID)
     points = []
 
@@ -36,23 +36,23 @@ def main():
     points.extend(new_points)
     logging.info(f"   ...found {len(new_points)} new data points")
             
-    logging.info("Read league Activity")
-    new_points = get_influx_data_from_activities(league)
-    points.extend(new_points)
-    logging.info(f"   ...found {len(new_points)} new data points")
-
-    logging.info("Reading player data for teams...")
-    for team in league.standings():
-        logging.info("   ...%s" % team.team_name)
-        new_points = get_fantasy_playervalue_points(team.roster, schedule, team.team_name)
-        points.extend(new_points)
-        logging.info(f"      ...found {len(new_points)} new data points")
-    
-    logging.info("Read player data for free agents...")
-    all_free_agents = league.free_agents(size=0)
-    new_points = get_fantasy_playervalue_points(all_free_agents, schedule, "Free Agents", skip_scores_below=10.0)
-    points.extend(new_points)
-    logging.info(f"   ...found {len(new_points)} new data points")
+    #logging.info("Read league Activity")
+    #new_points = get_influx_data_from_activities(league)
+    #points.extend(new_points)
+    #logging.info(f"   ...found {len(new_points)} new data points")
+#
+    #logging.info("Reading player data for teams...")
+    #for team in league.standings():
+    #    logging.info("   ...%s" % team.team_name)
+    #    new_points = get_playerstats_points(team.roster, team.team_name)
+    #    points.extend(new_points)
+    #    logging.info(f"      ...found {len(new_points)} new data points")
+    #
+    #logging.info("Read player data for free agents...")
+    #all_free_agents = league.free_agents(size=0)
+    #new_points = get_playerstats_points(all_free_agents, "Free Agents", skip_scores_below=10.0)
+    #points.extend(new_points)
+    #logging.info(f"   ...found {len(new_points)} new data points")
 
     logging.info("Pushing %s data points to InfluxDB" % len(points))
     influx_client = influxdb_client.InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
@@ -109,10 +109,10 @@ def get_influx_data_from_activities(league):
 def get_influx_data_from_matchups(league):
     points = []
     for current_week in range(1,22):
-        logging.info(f"...week {current_week}")
+        logging.info(f"...checking week {current_week}")
         matchups = league.scoreboard(current_week)
         if not matchups or (matchups[0].winner == "UNDECIDED"):
-            logging.info("...matchup is still active")
+            logging.info(f"   -> matchup {current_week} is still active...")
             break
 
         matchup_dates = get_matchup_dates()
@@ -143,36 +143,29 @@ def get_influx_data_from_matchups(league):
                 })
     return points
 
-def get_fantasy_playervalue_points(players, schedule, fantasy_team, skip_scores_below=-100.0):
+def get_playerstats_points(players, fantasy_team, skip_scores_below=-100.0):
     points = []
     for player in players:
-        for (matchup, games) in get_gamedates_split_by_weeks(schedule['leagueSchedule']['gameDates']).items():
-            for score_type in score_types:
-                games_per_team = get_num_games_per_team(games)
-                score = get_score_for_player(player, score_type, games_per_team)
-                #to get a normalized score we assume everyone is playing for the Lakers
-                normalized_score = get_score_for_player(player, score_type, games_per_team, overwrite_team='LAL')
+        for score_type in score_types:
+            score = player.stats[score_type]['applied_avg']
+            if score < skip_scores_below: #this skips players who are barely productive
+                continue
 
-                if score < skip_scores_below: #this skips players who are barely productive
-                    continue
-
-                points.append({
-                        'measurement': 'fantasy_playervalue',
-                        'tags': {
-                            'fantasy_team': fantasy_team,
-                            'injury_status': player.injuryStatus,
-                            'is_on_ir': (player.lineupSlot == "IR"),
-                            'matchup': matchup,
-                            'score_type': score_type,
-                            'acquisitionType': player.acquisitionType
-                        },
-                        "time": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
-                        "fields": {
-                            "score": score,
-                            "normalized_score": normalized_score,
-                            "player": player.name
-                        }
-                    })
+            points.append({
+                    'measurement': 'fantasy_playerstats',
+                    'tags': {
+                        'fantasy_team': fantasy_team,
+                        'injury_status': player.injuryStatus,
+                        'is_on_ir': (player.lineupSlot == "IR"),
+                        'score_type': score_type,
+                        'acquisitionType': player.acquisitionType,
+                        'player': player.name
+                    },
+                    "time": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+                    "fields": {
+                        "score": score
+                    }
+                })
     return points
 
 def get_matchup_dates():

@@ -16,5 +16,5 @@ ENV LEAGUE_YEAR=2023
 ENV BOT_API_KEY=$BOT_API_KEY
 ENV BOT_CHAT_ID=$BOT_CHAT_ID
 
-COPY ./post_powerrankings_to_telegram.py ./post_powerrankings_to_telegram.py
-CMD python ./post_powerrankings_to_telegram.py
+COPY ./matchup_prediction.py ./matchup_prediction.py
+CMD python ./matchup_prediction.py

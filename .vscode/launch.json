@@ -1,0 +1,27 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "env": {
+                "ESPN_S2": "AEB5bhA03uKEegAyr2UCLiMVteaGww%2Fe3b2DiU00jlGxEqxaP7odO%2FLjW1rW2Wa%2B1B8nz6LYjrxOuD4MK%2BDg0OBh%2FTtokrX1jxO3o70b6Hmc2jziQwq3wP5Lvdjv3pXyDenimrM0YduFq47sLM7B3SF4BwuCcgkTwS2MQrfwjYe%2FjSbic8%2Bv84HApC6JNpI%2Bn3H%2FSpmtmLR28OjsBd14jcb4cGnaQ0VX1TlszqjabvK9WyN9qUGZ6MELVdqlhUn5Za%2FAtvcQAL4avPikBI9eKT%2FJ",
+                "SWID": "{7E6254AC-2122-45FC-815D-146E95002343}",
+                "LEAGUE_ID": "288399984",
+                "LEAGUE_YEAR": "2024",
+                "BOT_API_KEY": "5256187557:AAFUUx5PKzcEly-778-I06nyPn1PXct0uHU",
+                //Test Channel
+                "BOT_CHAT_ID": "-638810494",
+                //Production Channel
+                //"BOT_CHAT_ID": "-623811432",
+            },
+            "console": "integratedTerminal",
+            "justMyCode": true
+        }
+    ]
+}

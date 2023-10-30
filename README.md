@@ -7,3 +7,8 @@ Collection of scripts to analyze ESPN Fantasy NBA league data
   * `BOT_API_KEY` and `BOT_CHAT_ID`: API-Key and Chat ID for the telegram bot and channel you'd like to post messages to
   * `INFLUX_SERVER`, `INFLUX_USER`, `INFLUX_PASSWORD`, `INFLUX_DATABASE` and `INFLUX_SERVER`: InfluxDB you'd like to store measures in
 * To get the full NBA schedule download scheduleLeagueV2.json from https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json
+
+# Influx
+* Drop measurement:
+  * `docker exec -it influxdb /bin/bash`
+  * `influx delete --bucket HomeBucket --start '1970-01-01T00:00:00Z' --stop $(date +"%Y-%m-%dT%H:%M:%SZ") --predicate '_measurement="fantasy_playervalue"'`
